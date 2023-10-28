@@ -1,4 +1,7 @@
-﻿using System.Data.SqlClient;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Diagnostics;
 
 namespace ScheduleService
@@ -42,29 +45,42 @@ namespace ScheduleService
 
         public async Task ConsoleExecute(ItemCommand itemCommand)
         {
-            Process process = new Process();
-            process.StartInfo.FileName = itemCommand.Parameter1;
-            
-            process.StartInfo.UseShellExecute = itemCommand.UseShellExecute;
-
-            if (itemCommand.CreateNoWindow)
+            var processStartInfo = new ProcessStartInfo(itemCommand.Parameter1, itemCommand.Parameter2)
             {
-                process.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
-                process.StartInfo.CreateNoWindow = true;
+                CreateNoWindow = itemCommand.CreateNoWindow,
+                UseShellExecute = itemCommand.UseShellExecute,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = itemCommand.Parameter3
+            };
+
+            var output = new List<string>();
+
+            var process = Process.Start(processStartInfo);
+
+            if (process != null)
+            {
+                process.Start();
+
+                if (itemCommand.WaitForExit)
+                {
+                    process.OutputDataReceived += (sender, args1) => {
+                        if (args1.Data != null)
+                        {
+                            output.Add(args1.Data);
+                        }
+                    };
+
+                    process.BeginOutputReadLine();
+                    process.WaitForExit();
+                }
+
+                await Task.Delay(itemCommand.Delay);
+
+                logger.LogInformation("ItemCommand {0}, Console run successfully", itemCommand.OrderId);
+
+                logger.LogInformation("ItemCommand {0}, result: {1}", itemCommand.OrderId, string.Join(Environment.NewLine, output));
             }
-
-            process.StartInfo.Arguments = itemCommand.Parameter2;
-
-            process.Start();
-
-            if (itemCommand.WaitForExit)
-            {
-                process.WaitForExit();
-            }            
-
-            await Task.Delay(itemCommand.Delay);
-
-            logger.LogInformation("ItemCommand {0}, Console run successfully", itemCommand.OrderId);
         }
 
         public async Task HttpGetExecute(ItemCommand itemCommand)
@@ -72,9 +88,15 @@ namespace ScheduleService
             using HttpClient client = new();
             var result = await client.GetStringAsync(itemCommand.Parameter1);
 
+            var output = new List<string>(result
+                .Replace("\r", string.Empty)
+                .Split(new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries));
+
             await Task.Delay(itemCommand.Delay);
 
-            logger.LogInformation("ItemCommand {0}, HttpGet run successfully, result: {1}", itemCommand.OrderId, result);
+            logger.LogInformation("ItemCommand {0}, HttpGet run successfully", itemCommand.OrderId);
+
+            logger.LogInformation("ItemCommand {0}, result: {1}", itemCommand.OrderId, result);
         }
 
         public async Task SqlServerCommandExecute(ItemCommand itemCommand)
@@ -97,7 +119,9 @@ namespace ScheduleService
 
             await Task.Delay(itemCommand.Delay);
 
-            logger.LogInformation("ItemCommand {0}, SQL Command run successfully, result: {1}", itemCommand.OrderId, result);
+            logger.LogInformation("ItemCommand {0}, SQL Command run successfully", itemCommand.OrderId);
+
+            logger.LogInformation("ItemCommand {0}, result: {1}", itemCommand.OrderId, result);
         }
     }
 }
