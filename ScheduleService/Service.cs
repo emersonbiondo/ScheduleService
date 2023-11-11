@@ -1,6 +1,3 @@
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
-using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Diagnostics;
 
@@ -16,6 +13,11 @@ namespace ScheduleService
 
         public async Task Execute(List<ItemCommand> itemCommands)
         {
+            if (itemCommands.Count == 0)
+            {
+                logger.LogWarning("ItemCommands is Empty");
+            }
+
             foreach (var itemCommand in itemCommands.OrderBy(x => x.OrderId)) {
                 try
                 {
