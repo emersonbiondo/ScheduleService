@@ -1,2 +1,2 @@
 # ScheduleService
-Windows Service for Task Scheduling
+Windows service for scheduling predefined tasks
