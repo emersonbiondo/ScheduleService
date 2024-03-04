@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Configuration;
 using Microsoft.Extensions.Logging.EventLog;
 using Newtonsoft.Json;
+using NReco.Logging.File;
 using ScheduleService;
 
 var configurationBuilder = new ConfigurationBuilder()
